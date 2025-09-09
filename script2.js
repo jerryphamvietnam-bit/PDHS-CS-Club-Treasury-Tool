@@ -1,19 +1,34 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
 document.addEventListener("DOMContentLoaded", () => {
   const transactionForm = document.getElementById("transactionForm");
 
-  let storedTransactions = localStorage.getItem("transactions");
-  let transactions;
-  try {
-    transactions = storedTransactions ? JSON.parse(storedTransactions) : [];
-    if (!Array.isArray(transactions)) transactions = [];
-  } catch {
+  const firebaseConfig = {
+    apiKey: "AIzaSyBeLFWso2NJ7hf9AOSmG7JmqElvxFUE-co",
+    authDomain: "storage-31396.firebaseapp.com",
+    projectId: "storage-31396",
+    storageBucket: "storage-31396.firebasestorage.app",
+    messagingSenderId: "1054625514155",
+    appId: "1:1054625514155:web:d60ebf4770081ef0b7edee"
+  };
 
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  let transactions = [];
+
+  async function loadTransactions() {
     transactions = [];
+    const querySnapshot = await getDocs(collection(db, "transactions"));
+    querySnapshot.forEach((doc) => {
+      transactions.push(doc.data());
+    });
+
+    if (typeof renderTable === "function") renderTable(transactions);
   }
 
-  let history = [];
-
-  transactionForm.addEventListener("submit", function(e) {
+  transactionForm.addEventListener("submit", async function(e) {
     e.preventDefault();
 
     const source = document.getElementById("source").value;
@@ -25,11 +40,18 @@ document.addEventListener("DOMContentLoaded", () => {
       alert("Please fill in all fields correctly!");
       return;
     }
-    history.push(JSON.parse(JSON.stringify(transactions)));
-    transactions.push({ source, amount, date, type });
-    localStorage.setItem("transactions", JSON.stringify(transactions));
+
+    await addDoc(collection(db, "transactions"), {
+      source,
+      amount,
+      date,
+      type
+    });
+
     transactionForm.reset();
-    if (typeof renderTable === "function") renderTable();
+    await loadTransactions();
     alert("Transaction added!");
   });
+
+  loadTransactions();
 });
