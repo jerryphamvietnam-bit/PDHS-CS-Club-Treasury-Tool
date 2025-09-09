@@ -1,4 +1,4 @@
-const API_KEY = 'Treasurer';
+const API_KEY = '$2a$10$o9/geEcLNZDHjU/xNMRyNOjSxhICgVntnq.0vZrjBBL.EHuuJE2IC';
 const BIN_ID = '68bfbe5dae596e708fe7b37b';
 const API_URL = `https://api.jsonbin.io/v3/b/68bfbe5dae596e708fe7b37b`;
 
@@ -64,3 +64,4 @@ function updateLocalStorage(data) {
     console.error('Error syncing localStorage:', e);
   }
 })();
+
