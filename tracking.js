@@ -1,17 +1,63 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import { 
+  getFirestore, collection, getDocs, deleteDoc, doc, setDoc, addDoc, query, orderBy 
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
 const tableBody = document.getElementById("transactionTable");
 const balanceEl = document.getElementById("balance");
 
-let transactions = JSON.parse(localStorage.getItem("transactions")) || [];
-let history = [];
-let historyRedo = [];
+const firebaseConfig = {
+  apiKey: "AIzaSyBeLFWso2NJ7hf9AOSmG7JmqElvxFUE-co",
+  authDomain: "storage-31396.firebaseapp.com",
+  projectId: "storage-31396",
+  storageBucket: "storage-31396.firebasestorage.app",
+  messagingSenderId: "1054625514155",
+  appId: "1:1054625514155:web:d60ebf4770081ef0b7edee"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+let transactions = [];
+
+async function saveSnapshot() {
+  await addDoc(collection(db, "history"), {
+    timestamp: Date.now(),
+    transactions: transactions
+  });
+}
+
+async function loadTransactions() {
+  transactions = [];
+  const querySnapshot = await getDocs(collection(db, "transactions"));
+  querySnapshot.forEach((d) => {
+    transactions.push({ id: d.id, ...d.data() });
+  });
+  renderTable();
+}
+
+async function restoreSnapshot(snapshot) {
+  const querySnapshot = await getDocs(collection(db, "transactions"));
+  for (let d of querySnapshot.docs) {
+    await deleteDoc(doc(db, "transactions", d.id));
+  }
+
+  for (let t of snapshot.transactions) {
+    let copy = { ...t };
+    delete copy.id;
+    await addDoc(collection(db, "transactions"), copy);
+  }
+
+  await loadTransactions();
+}
 
 function renderTable() {
   tableBody.innerHTML = "";
   let balance = 0;
 
-  transactions.forEach((t, index) => {
+  transactions.forEach((t) => {
     const row = document.createElement("tr");
-    row.dataset.index = index;
+    row.dataset.id = t.id;
 
     const sourceCell = document.createElement("td");
     sourceCell.textContent = t.source;
@@ -29,6 +75,7 @@ function renderTable() {
     const button = document.createElement("button");
     button.textContent = "Delete";
     button.classList.add("delete-btn");
+    button.dataset.id = t.id;
     button.style.width = "100px";
     button.style.height = "50px";
     buttonCell.appendChild(button);
@@ -51,47 +98,42 @@ function renderTable() {
   balanceEl.textContent = "Balance: $" + balance.toFixed(2);
 }
 
-tableBody.addEventListener("click", function (e) {
+tableBody.addEventListener("click", async function (e) {
   if (e.target.classList.contains("delete-btn")) {
-    const row = e.target.closest("tr");
-    const index = row.dataset.index;
+    const id = e.target.dataset.id;
 
-    history.push(JSON.parse(JSON.stringify(transactions)));
-    historyRedo = []; 
+    await saveSnapshot();
 
-    transactions.splice(index, 1);
-    localStorage.setItem("transactions", JSON.stringify(transactions));
-    renderTable();
+    await deleteDoc(doc(db, "transactions", id));
+    await loadTransactions();
   }
 });
 
-function undo() {
-  if (history.length > 0) {
-    historyRedo.push(JSON.parse(JSON.stringify(transactions)));
-    transactions = history.pop();
-    localStorage.setItem("transactions", JSON.stringify(transactions));
-    renderTable();
+async function undo() {
+  const q = query(collection(db, "history"), orderBy("timestamp", "desc"));
+  const snapshot = await getDocs(q);
+
+  if (!snapshot.empty) {
+    const last = snapshot.docs[0].data();
+    await restoreSnapshot(last);
+
+    await deleteDoc(doc(db, "history", snapshot.docs[0].id));
   }
 }
 
-function redo() {
-  if (historyRedo.length > 0) {
-    history.push(JSON.parse(JSON.stringify(transactions)));
-    transactions = historyRedo.pop();
-    localStorage.setItem("transactions", JSON.stringify(transactions));
-    renderTable();
-  }
+async function redo() {
+  await loadTransactions();
 }
 
 document.addEventListener("keydown", function(event) {
-  if ((event.ctrlKey || event.metaKey) && event.key === 'z') {
+  if ((event.ctrlKey || event.metaKey) && event.key === "z") {
     event.preventDefault();
     undo();
   }
-  if ((event.ctrlKey || event.metaKey) && event.key === 'y') {
+  if ((event.ctrlKey || event.metaKey) && event.key === "y") {
     event.preventDefault();
     redo();
   }
 });
 
-renderTable();
+loadTransactions();
