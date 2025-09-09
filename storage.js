@@ -1,6 +1,6 @@
 const API_KEY = 'Treasurer';
-const BIN_ID = '$2a$10$insh9mfEdNT5CqQCLNX/xeFruMAgC62ncK2Nvgpi01t6TotlBUukq';
-const API_URL = `https://api.jsonbin.io/v3/b/${$2a$10$insh9mfEdNT5CqQCLNX/xeFruMAgC62ncK2Nvgpi01t6TotlBUukq}`;
+const BIN_ID = '68bfbe5dae596e708fe7b37b';
+const API_URL = `https://api.jsonbin.io/v3/b/68bfbe5dae596e708fe7b37b`;
 
 async function getSharedData() {
   const res = await fetch(API_URL, {
