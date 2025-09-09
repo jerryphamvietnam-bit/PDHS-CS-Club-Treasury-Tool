@@ -1,13 +1,14 @@
 const API_KEY = '$2a$10$o9/geEcLNZDHjU/xNMRyNOjSxhICgVntnq.0vZrjBBL.EHuuJE2IC';
 const BIN_ID = '68bfbe5dae596e708fe7b37b';
-const API_URL = `https://api.jsonbin.io/v3/b/68bfbe5dae596e708fe7b37b`;
+const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
 
 async function getSharedData() {
   const res = await fetch(API_URL, {
     headers: { 'X-Master-Key': API_KEY }
   });
+  if (!res.ok) throw new Error('Failed to fetch shared data');
   const json = await res.json();
-  return json.record;
+  return json.record || {};
 }
 
 async function updateSharedData(newData) {
@@ -19,6 +20,7 @@ async function updateSharedData(newData) {
     },
     body: JSON.stringify(newData)
   });
+  if (!res.ok) throw new Error('Failed to update shared data');
   return await res.json();
 }
 
@@ -51,7 +53,7 @@ function updateLocalStorage(data) {
     const localData = getLocalStorageData();
 
     // Merge shared data and local data (local wins)
-    const merged = mergeData(sharedData || {}, localData);
+    const merged = mergeData(sharedData, localData);
 
     // Update the shared bin with merged data
     await updateSharedData(merged);
@@ -64,4 +66,3 @@ function updateLocalStorage(data) {
     console.error('Error syncing localStorage:', e);
   }
 })();
-
