@@ -27,14 +27,25 @@
   google.charts.load('current', {'packages':['corechart']});
   google.charts.setOnLoadCallback(drawCharts);
 
-  function drawCharts() {
+  let transactions = [];
+
+  async function loadTransactions() {
+    try {
+      const res = await fetch("/api/transactions");
+      transactions = await res.json();
+    } catch (err) {
+      console.error("Failed to load transactions from server:", err);
+      transactions = JSON.parse(localStorage.getItem("transactions")) || [];
+    }
+  }
+
+  async function drawCharts() {
+    await loadTransactions();
     drawPieChart();
     drawLineChart();
   }
 
   function drawPieChart() {
-    let transactions = JSON.parse(localStorage.getItem("transactions")) || [];
-
     let totals = {};
     transactions.forEach(t => {
       if (!totals[t.type]) totals[t.type] = 0;
@@ -60,38 +71,35 @@
   }
 
   function drawLineChart() {
-  let transactions = JSON.parse(localStorage.getItem("transactions")) || [];
+    const sortedTransactions = [...transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
 
-  let balance = 0;
-  let chartData = [['Date', 'Balance ($)']];
+    let balance = 0;
+    let chartData = [['Date', 'Balance ($)']];
+    sortedTransactions.forEach(t => {
+      if (t.type === 'Funding') {
+        balance += t.amount;
+      } else if (t.type === 'Expense') {
+        balance -= t.amount;
+      }
+      chartData.push([t.date, balance]);
+    });
 
-  transactions.forEach((t) => {
-    if (t.type === 'Funding') {
-      balance += t.amount;
-    } else if (t.type === 'Expense') {
-      balance -= t.amount;
-    }
+    const data = google.visualization.arrayToDataTable(chartData);
 
-    chartData.push([t.date, balance]);
-  });
+    const options = {
+      title: 'Balance Over Time',
+      curveType: 'function',
+      legend: { position: 'bottom' },
+      backgroundColor: '#1F1F1F',
+      titleTextStyle: { color: '#C1C1C1' },
+      legendTextStyle: { color: '#C1C1C1' },
+      hAxis: { title: 'Date', textStyle: { color: '#C1C1C1' }, titleTextStyle: { color: '#C1C1C1' } },
+      vAxis: { title: 'Balance ($)', textStyle: { color: '#C1C1C1' }, titleTextStyle: { color: '#C1C1C1' } }
+    };
 
-  const data = google.visualization.arrayToDataTable(chartData);
-
-  const options = {
-    title: 'Balance Over Time',
-    curveType: 'function',
-    legend: { position: 'bottom' },
-    backgroundColor: '#1F1F1F',
-    titleTextStyle: { color: '#C1C1C1' },
-    legendTextStyle: { color: '#C1C1C1' },
-    hAxis: { title: 'Date', textStyle: { color: '#C1C1C1' }, titleTextStyle: { color: '#C1C1C1' } },
-    vAxis: { title: 'Balance ($)', textStyle: { color: '#C1C1C1' }, titleTextStyle: { color: '#C1C1C1' } }
-  };
-
-  const chart = new google.visualization.LineChart(document.getElementById('curve_chart'));
-  chart.draw(data, options);
-}
-
+    const chart = new google.visualization.LineChart(document.getElementById('curve_chart'));
+    chart.draw(data, options);
+  }
 
   setInterval(drawCharts, 1000);
 </script>
