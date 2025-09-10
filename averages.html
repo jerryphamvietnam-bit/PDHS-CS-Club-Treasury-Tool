@@ -71,49 +71,53 @@
   }
 
   function drawLineChart() {
-  const sortedTransactions = [...transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
+    const sortedTransactions = [...transactions].sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      return dateA - dateB;
+    });
 
-  let balance = 0;
-  const chartData = [['Date', 'Balance ($)']];
+    let balance = 0;
+    let chartData = [['Date', 'Balance ($)']];
 
-  sortedTransactions.forEach(t => {
-    if (t.type === 'Funding') balance += t.amount;
-    else if (t.type === 'Expense') balance -= t.amount;
+    sortedTransactions.forEach(t => {
+      if (t.type === 'Funding') {
+        balance += t.amount;
+      } else if (t.type === 'Expense') {
+        balance -= t.amount;
+      }
 
-    chartData.push([new Date(t.date), balance]);
-  });
+      chartData.push([new Date(t.date), balance]);
+    });
 
-  const data = google.visualization.arrayToDataTable(chartData);
+    const data = google.visualization.arrayToDataTable(chartData);
 
-  const options = {
-    title: 'Balance Over Time',
-    curveType: 'function',
-    legend: { position: 'bottom' },
-    backgroundColor: '#1F1F1F',
-    titleTextStyle: { color: '#C1C1C1' },
-    legendTextStyle: { color: '#C1C1C1' },
-    hAxis: {
-      title: 'Date',
-      format: 'MMM dd, yyyy',
-      textStyle: { color: '#C1C1C1' },
-      titleTextStyle: { color: '#C1C1C1' }
-    },
-    vAxis: {
-      title: 'Balance ($)',
-      textStyle: { color: '#C1C1C1' },
-      titleTextStyle: { color: '#C1C1C1' }
-    }
-  };
+    const options = {
+      title: 'Balance Over Time',
+      curveType: 'function',
+      legend: { position: 'bottom' },
+      backgroundColor: '#1F1F1F',
+      titleTextStyle: { color: '#C1C1C1' },
+      legendTextStyle: { color: '#C1C1C1' },
+      hAxis: {
+        title: 'Date',
+        textStyle: { color: '#C1C1C1' },
+        titleTextStyle: { color: '#C1C1C1' },
+        format: 'MMM dd, yyyy'
+      },
+      vAxis: {
+        title: 'Balance ($)',
+        textStyle: { color: '#C1C1C1' },
+        titleTextStyle: { color: '#C1C1C1' }
+      }
+    };
 
-  const chart = new google.visualization.LineChart(document.getElementById('curve_chart'));
-  chart.draw(data, options);
-}
-
+    const chart = new google.visualization.LineChart(document.getElementById('curve_chart'));
+    chart.draw(data, options);
+  }
 
   setInterval(drawCharts, 1000);
 </script>
 
 </body>
 </html>
-
-
