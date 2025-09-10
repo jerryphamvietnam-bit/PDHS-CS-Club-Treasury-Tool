@@ -27,6 +27,25 @@
   google.charts.load('current', {'packages':['corechart']});
   google.charts.setOnLoadCallback(drawCharts);
 
+  // parse date string robustly: supports YYYY-MM-DD, MM/DD/YYYY, or falls back to Date()
+  function parseDate(dateStr) {
+    if (!dateStr) return null;
+    dateStr = String(dateStr).trim();
+    // YYYY-MM-DD (or YYYY-M-D)
+    if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(dateStr)) {
+      const parts = dateStr.split('-').map(p => parseInt(p, 10));
+      return new Date(parts[0], parts[1] - 1, parts[2]);
+    }
+    // MM/DD/YYYY or M/D/YYYY
+    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateStr)) {
+      const parts = dateStr.split('/').map(p => parseInt(p, 10));
+      return new Date(parts[2], parts[0] - 1, parts[1]);
+    }
+    // Try ISO / timestamp fallback
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
   function drawCharts() {
     drawPieChart();
     drawLineChart();
@@ -37,8 +56,10 @@
 
     let totals = {};
     transactions.forEach(t => {
+      // ensure amount numeric
+      const amt = typeof t.amount === 'number' ? t.amount : parseFloat(t.amount) || 0;
       if (!totals[t.type]) totals[t.type] = 0;
-      totals[t.type] += t.amount;
+      totals[t.type] += amt;
     });
 
     let chartData = [['Type', 'Amount']];
@@ -62,23 +83,56 @@
   function drawLineChart() {
     let transactions = JSON.parse(localStorage.getItem("transactions")) || [];
 
-    // Sort transactions by date (oldest → newest)
-    transactions.sort((a, b) => new Date(a.date) - new Date(b.date));
+    // Map and parse dates, filter invalid
+    const parsed = transactions
+      .map(t => {
+        const d = parseDate(t.date);
+        const amt = typeof t.amount === 'number' ? t.amount : parseFloat(t.amount) || 0;
+        return { original: t, dateObj: d, amount: amt, type: t.type };
+      })
+      .filter(x => x.dateObj && !isNaN(x.dateObj.getTime())); // only valid dates
+
+    if (parsed.length === 0) {
+      // no valid data — draw an empty chart with original behavior
+      const emptyData = google.visualization.arrayToDataTable([['Date','Balance ($)']]);
+      const emptyOptions = {
+        title: 'Balance Over Time',
+        curveType: 'function',
+        legend: { position: 'bottom' },
+        backgroundColor: '#1F1F1F',
+        titleTextStyle: { color: '#C1C1C1' },
+        legendTextStyle: { color: '#C1C1C1' },
+        hAxis: { title: 'Date', textStyle: { color: '#C1C1C1' }, titleTextStyle: { color: '#C1C1C1' } },
+        vAxis: { title: 'Balance ($)', textStyle: { color: '#C1C1C1' }, titleTextStyle: { color: '#C1C1C1' } }
+      };
+      const chart = new google.visualization.LineChart(document.getElementById('curve_chart'));
+      chart.draw(emptyData, emptyOptions);
+      return;
+    }
+
+    // Sort by parsed date (oldest -> newest)
+    parsed.sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
+
+    // Build DataTable explicitly using Date type (avoids categorical x-axis)
+    const dataTable = new google.visualization.DataTable();
+    dataTable.addColumn('date', 'Date');
+    dataTable.addColumn('number', 'Balance ($)');
 
     let balance = 0;
-    let chartData = [['Date', 'Balance ($)']];
-
-    transactions.forEach(t => {
-      if (t.type === 'Funding') {
-        balance += t.amount;
-      } else if (t.type === 'Expense') {
-        balance -= t.amount;
-      }
-      // Push as Date object so X-axis auto scales correctly
-      chartData.push([new Date(t.date), balance]);
+    const rows = [];
+    parsed.forEach(item => {
+      if (item.type === 'Funding' || String(item.type).toLowerCase() === 'funding') balance += item.amount;
+      else balance -= item.amount;
+      rows.push([ item.dateObj, balance ]);
     });
 
-    const data = google.visualization.arrayToDataTable(chartData);
+    dataTable.addRows(rows);
+
+    // Axis padding: add small padding so points aren't flush with edge
+    const first = rows[0][0].getTime();
+    const last = rows[rows.length - 1][0].getTime();
+    const range = Math.max(1, last - first);
+    const pad = Math.max(24*60*60*1000, Math.round(range * 0.03)); // 1 day or 3% of range
 
     const options = {
       title: 'Balance Over Time',
@@ -87,22 +141,26 @@
       backgroundColor: '#1F1F1F',
       titleTextStyle: { color: '#C1C1C1' },
       legendTextStyle: { color: '#C1C1C1' },
-      hAxis: { 
+      hAxis: {
         title: 'Date',
-        format: 'MMM dd',   // nice readable date format
+        format: 'MMM dd',   // readable
         textStyle: { color: '#C1C1C1' },
         titleTextStyle: { color: '#C1C1C1' },
-        viewWindowMode: 'pretty' // auto scale to show all dates
+        viewWindowMode: 'explicit',
+        viewWindow: {
+          min: new Date(first - pad),
+          max: new Date(last + pad)
+        }
       },
-      vAxis: { 
-        title: 'Balance ($)', 
-        textStyle: { color: '#C1C1C1' }, 
+      vAxis: {
+        title: 'Balance ($)',
+        textStyle: { color: '#C1C1C1' },
         titleTextStyle: { color: '#C1C1C1' }
       }
     };
 
     const chart = new google.visualization.LineChart(document.getElementById('curve_chart'));
-    chart.draw(data, options);
+    chart.draw(dataTable, options);
   }
 
   // Refresh every second
