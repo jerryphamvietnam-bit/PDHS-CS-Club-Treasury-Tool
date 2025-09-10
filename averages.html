@@ -114,6 +114,7 @@ function drawLineChart() {
   });
 
   dataTable.addRows(rows);
+  dataTable.sort([{column: 0}]);
 
   const first = rows[0][0].getTime();
   const last = rows[rows.length - 1][0].getTime();
