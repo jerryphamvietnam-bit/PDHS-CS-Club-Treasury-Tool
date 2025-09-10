@@ -27,25 +27,14 @@
   google.charts.load('current', {'packages':['corechart']});
   google.charts.setOnLoadCallback(drawCharts);
 
-  let transactions = [];
-
-  async function loadTransactions() {
-    try {
-      const res = await fetch("/api/transactions");
-      transactions = await res.json();
-    } catch (err) {
-      console.error("Failed to load transactions from server:", err);
-      transactions = JSON.parse(localStorage.getItem("transactions")) || [];
-    }
-  }
-
-  async function drawCharts() {
-    await loadTransactions();
+  function drawCharts() {
     drawPieChart();
     drawLineChart();
   }
 
   function drawPieChart() {
+    let transactions = JSON.parse(localStorage.getItem("transactions")) || [];
+
     let totals = {};
     transactions.forEach(t => {
       if (!totals[t.type]) totals[t.type] = 0;
@@ -70,28 +59,23 @@
     chart.draw(data, options);
   }
 
-  function parseDate(dateStr) {
-    if (dateStr.includes('-')) {
-      const parts = dateStr.split('-');
-      return new Date(parts[0], parts[1]-1, parts[2]);
-    } else if (dateStr.includes('/')) {
-      const parts = dateStr.split('/');
-      return new Date(parts[2], parts[0]-1, parts[1]);
-    }
-    return new Date(dateStr); 
-  }
-
   function drawLineChart() {
-    const sortedTransactions = [...transactions].sort((a, b) => parseDate(a.date) - parseDate(b.date));
+    let transactions = JSON.parse(localStorage.getItem("transactions")) || [];
+
+    // Sort transactions by actual date (oldest → newest)
+    transactions.sort((a, b) => new Date(a.date) - new Date(b.date));
 
     let balance = 0;
     let chartData = [['Date', 'Balance ($)']];
 
-    sortedTransactions.forEach(t => {
-      if (t.type === 'Funding') balance += t.amount;
-      else if (t.type === 'Expense') balance -= t.amount;
-
-      chartData.push([parseDate(t.date), balance]);
+    transactions.forEach(t => {
+      if (t.type === 'Funding') {
+        balance += t.amount;
+      } else if (t.type === 'Expense') {
+        balance -= t.amount;
+      }
+      // Use Date objects so the X-axis scales correctly
+      chartData.push([new Date(t.date), balance]);
     });
 
     const data = google.visualization.arrayToDataTable(chartData);
@@ -105,9 +89,10 @@
       legendTextStyle: { color: '#C1C1C1' },
       hAxis: { 
         title: 'Date', 
+        format: 'MMM dd',  // human-readable date
         textStyle: { color: '#C1C1C1' }, 
-        titleTextStyle: { color: '#C1C1C1' }, 
-        format: 'MMM dd, yyyy'
+        titleTextStyle: { color: '#C1C1C1' },
+        viewWindowMode: 'pretty'  // auto-scales to show all dates
       },
       vAxis: { 
         title: 'Balance ($)', 
