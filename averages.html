@@ -62,7 +62,7 @@
   function drawLineChart() {
     let transactions = JSON.parse(localStorage.getItem("transactions")) || [];
 
-    // Sort transactions by actual date (oldest → newest)
+    // Sort transactions by date (oldest → newest)
     transactions.sort((a, b) => new Date(a.date) - new Date(b.date));
 
     let balance = 0;
@@ -74,7 +74,7 @@
       } else if (t.type === 'Expense') {
         balance -= t.amount;
       }
-      // Use Date objects so the X-axis scales correctly
+      // Push as Date object so X-axis auto scales correctly
       chartData.push([new Date(t.date), balance]);
     });
 
@@ -88,16 +88,16 @@
       titleTextStyle: { color: '#C1C1C1' },
       legendTextStyle: { color: '#C1C1C1' },
       hAxis: { 
-        title: 'Date', 
-        format: 'MMM dd',  // human-readable date
-        textStyle: { color: '#C1C1C1' }, 
+        title: 'Date',
+        format: 'MMM dd',   // nice readable date format
+        textStyle: { color: '#C1C1C1' },
         titleTextStyle: { color: '#C1C1C1' },
-        viewWindowMode: 'pretty'  // auto-scales to show all dates
+        viewWindowMode: 'pretty' // auto scale to show all dates
       },
       vAxis: { 
         title: 'Balance ($)', 
         textStyle: { color: '#C1C1C1' }, 
-        titleTextStyle: { color: '#C1C1C1' } 
+        titleTextStyle: { color: '#C1C1C1' }
       }
     };
 
@@ -105,6 +105,7 @@
     chart.draw(data, options);
   }
 
+  // Refresh every second
   setInterval(drawCharts, 1000);
 </script>
 
